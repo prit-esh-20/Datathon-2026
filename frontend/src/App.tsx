@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 // import { StarField } from "./components/StarField";
 import Hyperspeed from "./components/Hyperspeed";
 import { hyperspeedPresets } from "./components/HyperSpeedPresets";
@@ -93,30 +93,7 @@ function App() {
     }, 1500);
   };
 
-  /* Rotating Placeholder Logic */
-  const PLACEHOLDERS = [
-    "#ChatGPT",
-    "GRWM",
-    "Met Gala",
-    "#Viral",
-    "Creator Trend"
-  ];
 
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [isInputFocused, setIsInputFocused] = useState(false);
-
-  useEffect(() => {
-    // Only rotate if input is NOT focused and input is empty
-    if (isInputFocused || topic.length > 0) return;
-
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDERS.length);
-    }, 3000); // Rotate every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [isInputFocused, topic]);
-
-  const currentPlaceholder = PLACEHOLDERS[placeholderIndex];
 
   return (
     // ... existing wrapper ...
@@ -190,35 +167,14 @@ function App() {
             >
               <Zap className="w-8 h-8 text-neon-blue ml-4 opacity-70 group-focus-within:opacity-100 group-focus-within:text-white transition-all duration-300" />
 
-              {/* Relative wrapper for Input + Animated Placeholder */}
-              <div className="relative w-full ml-4">
-                <AnimatePresence mode="wait">
-                  {!isInputFocused && !topic && (
-                    <motion.span
-                      key={currentPlaceholder}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 0.3, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      transition={{ duration: 0.3 }}
-                      className="absolute inset-0 flex items-center text-xl font-medium tracking-wide text-white pointer-events-none select-none truncate"
-                    >
-                      Enter a trend like {currentPlaceholder}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-
-                <input
-                  type="text"
-                  // Remove default placeholder so custom one shows
-                  placeholder=""
-                  className="w-full bg-transparent border-none outline-none text-white py-4 text-xl font-medium tracking-wide relative z-10"
-                  value={topic}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
-                  onChange={(e) => setTopic(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Enter trend (e.g. 'Skibidi Toilet')"
+                className="w-full bg-transparent border-none outline-none text-white px-6 py-4 placeholder:text-white/30 text-xl font-medium tracking-wide"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+              />
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
