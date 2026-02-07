@@ -4,6 +4,8 @@ import Hyperspeed from "./components/Hyperspeed";
 import { hyperspeedPresets } from "./components/HyperSpeedPresets";
 import { RiskMeter } from "./components/RiskMeter";
 import { TrendChart } from "./components/TrendChart";
+import { DeclineRadar } from "./components/DeclineRadar";
+import { LifecycleTimeline } from "./components/LifecycleTimeline";
 import { Activity, Sparkles, Zap, TrendingDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -184,10 +186,44 @@ function App() {
                 </p>
               </div>
 
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <RiskMeter score={result.insight.riskScore} level={result.insight.declineRisk} />
-                <div className="lg:col-span-2 glass-panel p-6 rounded-2xl bg-white/5 backdrop-blur-xl">
-                  <TrendChart data={result.trend.history} color={result.insight.declineRisk === "High" ? "#ff003c" : "#0aff00"} />
+                {/* Left Column: Risk & Radar */}
+                <div className="space-y-6">
+                  <RiskMeter score={result.insight.riskScore} level={result.insight.declineRisk} />
+
+                  <div className="glass-panel p-6 rounded-2xl bg-white/5 backdrop-blur-xl border-neon-purple/30">
+                    <DeclineRadar data={result.insight.decline_drivers || [
+                      { label: "Saturation", value: 50, fullMark: 100 },
+                      { label: "Fatigue", value: 50, fullMark: 100 },
+                      { label: "Sentiment", value: 50, fullMark: 100 },
+                      { label: "Algo Shift", value: 50, fullMark: 100 },
+                      { label: "Disengage", value: 50, fullMark: 100 },
+                    ]} />
+                  </div>
+                </div>
+
+                {/* Right Column: Chart & Timeline */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="glass-panel p-6 rounded-2xl bg-white/5 backdrop-blur-xl border-white/10">
+                    <LifecycleTimeline stage="Saturation" />
+                  </div>
+                  <div className="glass-panel p-6 rounded-2xl bg-white/5 backdrop-blur-xl">
+                    <TrendChart data={result.trend.history} color={result.insight.declineRisk === "High" ? "#ff003c" : "#0aff00"} />
+                  </div>
+
+                  {/* Actions Area */}
+                  <div className="glass-panel p-6 rounded-2xl">
+                    <h4 className="text-sm font-semibold uppercase tracking-wider text-white/50 mb-4">Strategic Response</h4>
+                    <div className="flex gap-4">
+                      <button className="px-4 py-2 bg-neon-blue/10 border border-neon-blue/50 rounded hover:bg-neon-blue/20 text-xs text-neon-blue font-bold uppercase tracking-wider transition-all">
+                        Pivot Strategy
+                      </button>
+                      <button className="px-4 py-2 bg-purple-500/10 border border-purple-500/50 rounded hover:bg-purple-500/20 text-xs text-purple-400 font-bold uppercase tracking-wider transition-all">
+                        Partner with Creators
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
