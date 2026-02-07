@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+requests
+pandas
+textblob
+scikit-learn
+# Legacy Scrapers (Keep for fallback)
+pytrends
+# New API Clients
+google-search-results
+# praw (removed)
+google-generativeai

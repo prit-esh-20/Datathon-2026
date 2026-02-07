@@ -64,7 +64,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#020202] text-white relative overflow-x-hidden selection:bg-neon-purple/30 font-sans">
       {/* 3D Background - Fixed */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
+      <div className="fixed inset-0 z-[-1] pointer-events-none">
         <StarField />
       </div>
 
