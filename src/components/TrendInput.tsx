@@ -29,7 +29,7 @@ export function TrendInput({ onAnalyze, isLoading }: TrendInputProps) {
                     <Search className="w-6 h-6 text-neon-blue ml-3 opacity-70" />
                     <input
                         type="text"
-                        placeholder="Enter trend, hashtag, or meme (e.g., 'skibidi-toilet')"
+                        placeholder="Enter trend, hashtag, or YouTube video URL"
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
                         className="w-full bg-transparent border-none outline-none text-white px-4 py-3 placeholder:text-white/30 text-lg font-medium"

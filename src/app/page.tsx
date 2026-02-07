@@ -166,7 +166,11 @@ export default function Home() {
 
                 {/* Middle & Right: Signals & Charts */}
                 <div className="lg:col-span-2 space-y-8">
-                  <TrendChart data={data.trend.history} color={data.insight.declineRisk === "High" ? "#ff003c" : data.insight.declineRisk === "Medium" ? "#facc15" : "#0aff00"} />
+                  <TrendChart
+                    data={data.trend.history}
+                    color={data.insight.declineRisk === "High" ? "#ff003c" : data.insight.declineRisk === "Medium" ? "#facc15" : "#0aff00"}
+                    subtitle={data.insight.primaryDriver ? "Estimated trend trajectory" : undefined}
+                  />
 
                   <div className="space-y-4">
                     <h3 className="text-xl font-bold text-white/90 flex items-center gap-2 pl-2">
@@ -175,7 +179,11 @@ export default function Home() {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {data.insight.signals.map((signal, idx) => (
-                        <SignalCard key={idx} signal={signal} />
+                        <SignalCard
+                          key={idx}
+                          signal={signal}
+                          isPrimary={data.insight.primaryDriver?.toLowerCase().replace(/_/g, " ") === signal.metric.toLowerCase()}
+                        />
                       ))}
                     </div>
                   </div>

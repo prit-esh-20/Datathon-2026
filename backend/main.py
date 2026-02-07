@@ -5,6 +5,15 @@ from typing import List, Optional
 import time
 import random
 from trend_engine import analyze_trend_real
+import re
+from youtube_client import YouTubeClient
+from feature_engine import FeatureEngine
+from prediction_model import model
+from explainability import xai, gen, recommend
+import uuid
+
+yt_client = YouTubeClient()
+ft_engine = FeatureEngine()
 
 app = FastAPI()
 
@@ -43,10 +52,68 @@ class TrendData(BaseModel):
 class AnalysisResponse(BaseModel):
     insight: Insight
     trend: List[TrendData]
+    # Extension fields
+    primaryDriver: Optional[str] = None
+    explanation: Optional[str] = None
+    recommendedAction: Optional[str] = None
+    featureBreakdown: Optional[List[dict]] = None
 
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_trend(request: TrendRequest):
-    # 1. Try Real Data Analysis
+    # 1. YouTube specialized analysis
+    youtube_match = re.search(r"(?:v=|\/|be\/)([a-zA-Z0-9_-]{11})", request.topic)
+    if youtube_match:
+        video_id = youtube_match.group(1)
+        request_id = str(uuid.uuid4())
+        
+        # Data Acquisition
+        metadata = yt_client.get_video_metadata(video_id)
+        if metadata:
+            comments = yt_client.get_video_comments(video_id)
+            
+            # Feature Engineering (Stores in Feather)
+            ft_engine.process_and_register(request_id, metadata, comments)
+            
+            # Prediction (From Feather)
+            pred = model.predict(request_id)
+            
+            # Explainability
+            explanations = xai.get_feature_contributions(request_id)
+            primary_driver = explanations["primaryDriver"]
+            expl_text = gen.generate(primary_driver, pred["declineRisk"])
+            action = recommend.get_action(primary_driver)
+            
+            # Create final response
+            return {
+                "insight": {
+                    "riskScore": pred["declineRisk"],
+                    "declineRisk": "High" if pred["declineRisk"] > 75 else "Medium" if pred["declineRisk"] > 40 else "Low",
+                    "decline_probability": pred["declineRisk"] / 100.0,
+                    "predicted_time_to_decline": f"< {pred['timeWindow']}",
+                    "summary": expl_text,
+                    "signals": [
+                        {"metric": d["feature"].replace("_", " ").title(), 
+                         "status": "Critical" if d["contribution"] > 15 else "Warning" if d["contribution"] > 5 else "Normal", 
+                         "explanation": f"{gen.explanations.get(d['feature'], 'Feature impact on trend stability.')} (Score Impact: {d['contribution']:.1f})"}
+                        for d in explanations["featureBreakdown"]
+                    ],
+                    "decline_drivers": [
+                        {"label": d["feature"].replace("_", " ").title(), "value": int(min(100, max(0, d["value"] * 100 if d["value"] < 1 else d["value"]))), "fullMark": 100}
+                        for d in explanations["featureBreakdown"][:5]
+                    ],
+                    "actions": [action, "Review audience segment", "Audit content format"]
+                },
+                "trend": [
+                    {"timestamp": f"{i}h ago", "value": int(1000 * (1 - (i * pred['declineRisk']/2000)))}
+                    for i in range(24, 0, -1)
+                ],
+                "primaryDriver": primary_driver,
+                "explanation": expl_text,
+                "recommendedAction": action,
+                "featureBreakdown": explanations["featureBreakdown"]
+            }
+
+    # 2. Try Real Data Analysis (Existing)
     try:
         real_data = analyze_trend_real(request.topic)
         if real_data:

@@ -6,14 +6,22 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 interface TrendChartProps {
     data: TrendData["history"];
     color?: string;
+    subtitle?: string;
 }
 
-export function TrendChart({ data, color = "#00f3ff" }: TrendChartProps) {
+export function TrendChart({ data, color = "#00f3ff", subtitle }: TrendChartProps) {
     return (
         <div className="w-full h-[300px] glass-panel rounded-2xl p-4 relative">
-            <h3 className="text-white/60 text-sm font-semibold tracking-wider mb-4 uppercase pl-2">
-                Engagement Velocity (24h)
-            </h3>
+            <div className="flex justify-between items-center mb-4 pl-2">
+                <h3 className="text-white/60 text-sm font-semibold tracking-wider uppercase">
+                    Engagement Velocity (24h)
+                </h3>
+                {subtitle && (
+                    <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">
+                        {subtitle}
+                    </span>
+                )}
+            </div>
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data}>
                     <defs>

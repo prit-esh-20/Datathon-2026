@@ -263,7 +263,7 @@ function App() {
                   </div>
                   <input
                     type="text"
-                    placeholder={analysisType === "campaign" ? "Paste Campaign URL (YouTube/Instagram)..." : "Enter trend keyword (e.g. 'Skibidi Toilet')..."}
+                    placeholder={analysisType === "campaign" ? "Paste YouTube Video URL or Campaign Link..." : "Enter trend keyword (e.g. 'Skibidi Toilet')..."}
                     className="w-full bg-transparent border-none outline-none text-white px-4 py-4 placeholder:text-white/20 text-lg font-light tracking-wide"
                     value={topic}
                     onChange={handleInputChange}
@@ -371,10 +371,11 @@ function App() {
                         </motion.div>
                       )}
 
+                      {/* Insight Header - Decision Intelligence Summary */}
                       <div
                         className={`mb-12 border-l-4 pl-6 py-2 transition-all duration-1000 ${displayedResult.insight.riskScore > 75 ? "border-neon-red bg-neon-red/5" :
-                            displayedResult.insight.riskScore > 40 ? "border-amber-500 bg-amber-500/5" :
-                              "border-neon-blue bg-neon-blue/5"
+                          displayedResult.insight.riskScore > 40 ? "border-amber-500 bg-amber-500/5" :
+                            "border-neon-blue bg-neon-blue/5"
                           }`}
                       >
                         <div className="flex items-center gap-2 mb-3">

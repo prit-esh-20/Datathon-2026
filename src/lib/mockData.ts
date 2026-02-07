@@ -41,3 +41,14 @@ export const MOCK_TRENDS: Record<string, TrendData> = {
         })).reverse(),
     },
 };
+
+export const MOCK_INSIGHT: any = {
+    declineRisk: "High",
+    riskScore: 85,
+    summary: "Feather.ai detected high volatility in this trend (Offline Mode).",
+    signals: [
+        { metric: "Engagement Drop", status: "Critical", explanation: "Velocity has cratered below recovery thresholds." },
+        { metric: "Content Saturation", status: "Critical", explanation: "92% of posts are reposts or low-effort variations." },
+    ],
+    actions: ["Stop campaign spend immediately", "Pivot strategy", "Exit trend"],
+};

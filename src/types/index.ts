@@ -16,13 +16,22 @@ export interface TrendData {
 
 export interface FeatherInsight {
     declineRisk: "Low" | "Medium" | "High";
-    riskScore: number; // 0-100
-    summary: string; // "Decline risk is HIGH because..."
+    riskScore: number;
+    summary: string;
     signals: {
-        metric: "Engagement Drop" | "Influencer Disengagement" | "Content Saturation" | "Audience Fatigue";
+        metric: string;
         status: "Normal" | "Warning" | "Critical";
         explanation: string;
     }[];
-    actions: string[]; // Recommended actions
-    predictedDeclineDate?: string; // ISO date
+    actions: string[];
+    predictedDeclineDate?: string;
+    // Extension fields
+    primaryDriver?: string;
+    explanation?: string;
+    recommendedAction?: string;
+    featureBreakdown?: {
+        feature: string;
+        contribution: number;
+        value: any;
+    }[];
 }

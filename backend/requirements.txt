@@ -12,3 +12,4 @@ pytrends
 google-search-results
 # praw (removed)
 google-generativeai
+google-api-python-client
