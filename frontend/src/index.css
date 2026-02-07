@@ -3,15 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --background: #050505;
-  --foreground: #ededed;
+  background-color: #050505;
+  color: #ededed;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
   overflow-x: hidden;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Custom Scrollbar */
@@ -46,23 +45,4 @@ body {
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.02);
-}
-
-/* Animations */
-@keyframes glow {
-  0% {
-    box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
-  }
-
-  50% {
-    box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
-  }
-
-  100% {
-    box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
-  }
-}
-
-.animate-glow {
-  animation: glow 2s infinite;
 }
