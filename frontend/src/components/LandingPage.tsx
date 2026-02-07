@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Zap, TrendingDown, Shield, BarChart3, ArrowRight } from "lucide-react";
+import StarBorder from "./StarBorder";
 
 interface LandingPageProps {
     onStart: () => void;
@@ -45,18 +46,25 @@ export const LandingPage = ({ onStart }: LandingPageProps) => {
             </motion.div>
 
             {/* Main Action */}
-            <motion.button
-                whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(0, 243, 255, 0.4)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onStart}
-                className="group relative flex items-center gap-3 px-12 py-6 bg-white text-black rounded-full font-black text-xl uppercase tracking-widest transition-all overflow-hidden"
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.8 }}
+                className="group z-50 mt-12"
             >
-                <span className="relative z-10 flex items-center gap-3">
-                    Let's Get Started
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-transparent to-neon-purple opacity-0 group-hover:opacity-20 transition-opacity"></div>
-            </motion.button>
+                <StarBorder
+                    as="button"
+                    onClick={onStart}
+                    color="#00f3ff"
+                    speed="4s"
+                    className="hover:scale-105 transition-transform active:scale-95"
+                >
+                    <span className="flex items-center gap-3 font-black text-xl uppercase tracking-widest">
+                        Let's Get Started
+                        <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                </StarBorder>
+            </motion.div>
 
             {/* Feature Grids */}
             <motion.div
