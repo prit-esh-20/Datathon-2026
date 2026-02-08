@@ -3,47 +3,50 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 interface TrendChartProps {
     data: any;
     color?: string;
-    subtitle?: string;
 }
 
-export function TrendChart({ data, color = "#00f3ff", subtitle }: TrendChartProps) {
+export function TrendChart({ data, color = "#00f3ff" }: TrendChartProps) {
+    if (!data || data.length === 0) {
+        return (
+            <div className="w-full h-full flex items-center justify-center text-white/20 text-[10px] uppercase font-mono tracking-widest">
+                No Velocity Data Available
+            </div>
+        );
+    }
+
     return (
-        <div className="glass-panel rounded-2xl p-4 relative h-[300px] w-full">
-            <h3 className="text-white/60 text-sm font-semibold tracking-wider mb-1 uppercase pl-2">
-                Engagement Velocity (24h)
-            </h3>
-            {subtitle && (
-                <p className="text-neon-blue/40 text-[9px] font-mono italic uppercase tracking-widest pl-2 mb-4">
-                    {subtitle}
-                </p>
-            )}
+        <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
+                <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
                             <stop offset="95%" stopColor={color} stopOpacity={0} />
                         </linearGradient>
                     </defs>
                     <XAxis
                         dataKey="timestamp"
-                        stroke="#555"
-                        tick={{ fill: "#666", fontSize: 10 }}
+                        stroke="rgba(255,255,255,0.1)"
+                        tick={{ fill: "rgba(255,255,255,0.2)", fontSize: 9 }}
                         tickLine={false}
                         axisLine={false}
-                        interval={3}
                     />
                     <YAxis
-                        stroke="#555"
-                        tick={{ fill: "#666", fontSize: 10 }}
+                        stroke="rgba(255,255,255,0.1)"
+                        tick={{ fill: "rgba(255,255,255,0.2)", fontSize: 9 }}
                         tickLine={false}
                         axisLine={false}
-                        tickFormatter={(value) => `${value}`}
+                        domain={[0, 'auto']}
                     />
                     <Tooltip
-                        contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: "8px" }}
+                        contentStyle={{
+                            backgroundColor: "rgba(10,10,11,0.9)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "8px",
+                            fontSize: "10px"
+                        }}
                         itemStyle={{ color: "#fff" }}
-                        labelStyle={{ color: "#888", marginBottom: "5px" }}
+                        labelStyle={{ color: "rgba(255,255,255,0.4)", marginBottom: "4px" }}
                     />
                     <Area
                         type="monotone"
@@ -52,6 +55,7 @@ export function TrendChart({ data, color = "#00f3ff", subtitle }: TrendChartProp
                         fillOpacity={1}
                         fill="url(#colorValue)"
                         strokeWidth={2}
+                        animationDuration={1500}
                     />
                 </AreaChart>
             </ResponsiveContainer>

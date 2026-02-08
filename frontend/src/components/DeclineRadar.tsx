@@ -11,8 +11,8 @@ interface RadarProps {
 export function DeclineRadar({ data }: RadarProps) {
     // Config
     const radius = 90;  // Reduced to give more space for labels
-    const cx = 175;     // Centered in 350
-    const cy = 170;     // Shifted down to avoid title overlap
+    const cx = 200;     // Perfectly centered in 400
+    const cy = 175;     // Perfectly centered in 350
 
     // Stats
     const total = data.length;
@@ -42,7 +42,7 @@ export function DeclineRadar({ data }: RadarProps) {
     return (
         <div className="relative w-full h-[350px] flex items-center justify-center">
             {/* Increased viewBox to prevent clipping of labels */}
-            <svg width="100%" height="100%" viewBox="0 0 350 300" className="overflow-visible">
+            <svg width="100%" height="100%" viewBox="0 0 400 350" className="overflow-visible">
                 {/* Background Grids */}
                 {levels.map((level, i) => (
                     <polygon
@@ -83,14 +83,29 @@ export function DeclineRadar({ data }: RadarProps) {
                     animate={{ opacity: 0.6, scale: 1 }}
                     transition={{ duration: 1, ease: "easeOut" }}
                     points={polygonPoints}
-                    fill="rgba(255, 0, 60, 0.5)" // Neon Red Fill
+                    fill="rgba(255, 0, 60, 0.4)" // Neon Red Fill
                     stroke="#ff003c"
                     strokeWidth={2}
                 />
 
                 {/* Labels */}
                 {data.map((d, i) => {
-                    const { x, y } = getCoordinates(115, i); // Push labels out slightly
+                    const { x, y } = getCoordinates(120, i); // Push labels out further
+                    const words = d.label.split(' ');
+                    const lines = [];
+                    let currentLine = "";
+
+                    // Simple word wrap for SVG
+                    words.forEach(word => {
+                        if ((currentLine + word).length > 15) {
+                            lines.push(currentLine);
+                            currentLine = word + " ";
+                        } else {
+                            currentLine += word + " ";
+                        }
+                    });
+                    lines.push(currentLine);
+
                     return (
                         <text
                             key={i}
@@ -98,19 +113,26 @@ export function DeclineRadar({ data }: RadarProps) {
                             y={y}
                             textAnchor="middle"
                             dominantBaseline="middle"
-                            className="text-[10px] uppercase font-bold tracking-widest fill-white/60"
-                            style={{ fontSize: '10px' }}
+                            className="text-[9px] uppercase font-black tracking-widest fill-white/80"
                         >
-                            {d.label}
+                            {lines.map((line, lineIdx) => (
+                                <tspan
+                                    key={lineIdx}
+                                    x={x}
+                                    dy={lineIdx === 0 ? -(lines.length - 1) * 5 : 12}
+                                >
+                                    {line.trim()}
+                                </tspan>
+                            ))}
                         </text>
                     );
                 })}
             </svg>
 
             {/* Center Label */}
-            <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none">
-                <span className="text-neon-red text-xs font-mono bg-black/50 px-2 py-1 rounded backdrop-blur-sm border border-neon-red/30">
-                    DECLINE DRIVERS
+            <div className="absolute inset-x-0 bottom-4 flex justify-center pointer-events-none">
+                <span className="text-neon-red text-[10px] font-black uppercase tracking-[0.3em] bg-black/60 px-3 py-1.5 rounded-sm border border-neon-red/30 backdrop-blur-md">
+                    Decline Drivers
                 </span>
             </div>
         </div>

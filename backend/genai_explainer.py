@@ -32,9 +32,8 @@ class GenAIExplainer:
         else:
             try:
                 genai.configure(api_key=api_key)
-                # Use the 'latest' alias which is most compatible
-                self.model = genai.GenerativeModel('gemini-flash-latest')
-                print(f"[OK] Gemini AI (Flash-Latest) initialized with key: {api_key[:5]}...{api_key[-5:]}")
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                print(f"[OK] Gemini AI (1.5-Flash) initialized with key: {api_key[:5]}...{api_key[-5:]}")
             except Exception as e:
                 print(f"[WARN] Failed to initialize Gemini: {e}")
                 self.model = None

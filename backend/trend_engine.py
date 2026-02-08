@@ -479,7 +479,7 @@ def _format_drivers_for_chart(shap_drivers: list, fallback_signals: list) -> lis
         # Use SHAP contributions
         return [
             {
-                "label": d["label"][:25] + "..." if len(d["label"]) > 25 else d["label"],
+                "label": d["label"],
                 "value": int(d["contribution"] * 100),
                 "fullMark": 100
             }
@@ -489,7 +489,7 @@ def _format_drivers_for_chart(shap_drivers: list, fallback_signals: list) -> lis
         # Use fallback
         return [
             {
-                "label": reason[:20] + "...",
+                "label": reason,
                 "value": random.randint(15, 30),
                 "fullMark": 100
             }

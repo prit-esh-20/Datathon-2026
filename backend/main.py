@@ -71,6 +71,7 @@ class AnalysisResponse(BaseModel):
     explanation: str
     recommendedAction: str
     confidence: float
+    trend: Dict[str, Any]
     insight: InsightObj 
 
 # --- Endpoints ---

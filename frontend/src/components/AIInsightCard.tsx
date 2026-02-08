@@ -107,8 +107,8 @@ export const AIInsightCard = ({ riskScore, signals = [], drivers = [], primaryDr
                                             PRIMARY_DRIVER
                                         </div>
                                     )}
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">{signal.metric}</span>
+                                    <div className="flex items-start justify-between mb-2 gap-2">
+                                        <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider leading-tight line-clamp-2">{signal.metric}</span>
                                         <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${isPrimary || signal.status === "Critical" ? "bg-red-500/20 text-red-400" : "bg-neon-blue/20 text-neon-blue"
                                             }`}>
                                             {signal.status.toUpperCase()}
@@ -124,32 +124,36 @@ export const AIInsightCard = ({ riskScore, signals = [], drivers = [], primaryDr
                 </section>
 
                 {/* 3. Core Risk Driver (Business Impact) */}
-                <section className="pt-4 border-t border-white/5">
-                    <div className="flex items-center gap-2 mb-4">
+                <section className="pt-8 border-t border-white/5 flex flex-col items-center text-center">
+                    <div className="flex items-center gap-2 mb-8">
                         <FileText className="w-4 h-4 text-neon-blue" />
                         <h4 className="text-xs font-bold text-white/60 uppercase tracking-widest">Core Risk Driver Analysis</h4>
                     </div>
-                    <div className="flex items-center gap-6">
-                        <div className="flex-1">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-bold text-white uppercase tracking-tighter">
-                                    {drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].label : "Saturation Index"}
-                                </span>
-                                <span className="text-lg font-black text-neon-blue">
-                                    {drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].value : riskScore}%
-                                </span>
-                            </div>
-                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].value : riskScore}%` }}
-                                    className="h-full bg-gradient-to-r from-neon-blue to-neon-purple shadow-[0_0_10px_rgba(0,243,255,0.5)]"
-                                />
-                            </div>
+
+                    <div className="w-full max-w-md px-4 flex flex-col items-center">
+                        {/* Centered Large Metric */}
+                        <div className="text-5xl font-black text-neon-blue mb-2 tracking-tighter">
+                            {drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].value : riskScore}%
                         </div>
-                        <div className="w-1/3 text-[10px] text-white/40 font-mono italic leading-tight">
-                            "Primary driver for the {riskScore > 50 ? "predicted decline" : "growth outlook"}."
+
+                        {/* Centered Descriptor */}
+                        <div className="text-[10px] font-black text-white/90 uppercase tracking-[0.2em] mb-6 leading-relaxed max-w-xs">
+                            {drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].label : "Saturation Index"}
                         </div>
+
+                        {/* Centered Progress Bar */}
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-6 relative">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].value : riskScore}%` }}
+                                className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-blue bg-[length:200%_100%] animate-gradient-x shadow-[0_0_15px_rgba(0,243,255,0.4)]"
+                            />
+                        </div>
+
+                        {/* Centered Rationale Quote */}
+                        <p className="text-[10px] text-white/30 font-mono italic tracking-wide max-w-[280px]">
+                            " {drivers.length > 0 ? drivers.sort((a, b) => b.value - a.value)[0].label : "This factor"} is the primary driver for the {riskScore > 50 ? "predicted decline" : "growth outlook"} in this trend segment. "
+                        </p>
                     </div>
                 </section>
             </div>
