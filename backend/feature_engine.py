@@ -1,80 +1,63 @@
 import pandas as pd
 from textblob import TextBlob
 from datetime import datetime
-from feather_client import feather
 
 class FeatureEngine:
     def __init__(self):
-        self.fatigue_keywords = ["boring", "tired", "repost", "again", "old", "dying", "dead", "over", "unsubscribed"]
+        self.fatigue_keywords = ["boring", "tired", "repost", "again", "old", "dying", "dead", "over", "fake", "scripted"]
 
-    def compute_features(self, metadata, comments):
+    def compute_signals(self, metadata: dict, comments: list) -> dict:
         """
-        Compute ONLY human-interpretable, platform-agnostic features.
+        Converts raw YouTube/Trend data into 5 Universal ML Signals.
         """
-        features = {}
         
-        # 1. basic stats
-        views = metadata.get("viewCount", 1)
-        likes = metadata.get("likeCount", 0)
-        comment_count = metadata.get("commentCount", 0)
-        published_at = metadata.get("publishedAt", "")
+        # 1. Parse Inputs
+        views = metadata.get("viewCount", 1) or 1
+        likes = metadata.get("likeCount", 0) or 0
         
-        features["viewCount"] = views
-        features["likeCount"] = likes
-        
-        # 2. engagement_per_view
-        features["engagement_per_view"] = (likes + comment_count) / views if views > 0 else 0
-        
-        # 3. trend_age (days)
-        if published_at:
-            pub_date = datetime.strptime(published_at[:10], "%Y-%m-%d")
-            features["trend_age"] = (datetime.now() - pub_date).days
-        else:
-            features["trend_age"] = 7
-            
-        # 4. Comment based features
+        # 2. Compute Engagement Velocity (Proxy: Likes/Views ratio)
+        # In real production, this would compare t1 vs t0. Here we use interaction rate as proxy.
+        engagement_velocity = (likes / views) * 100 if views > 0 else 0
+        # Normalize to -1 to 1 range for model (approximate logic for demo)
+        norm_velocity = min(1.0, max(-1.0, (engagement_velocity - 2.0) / 2.0))
+
+        # 3. Compute Sentiment Score (-1 to 1)
+        sentiment_score = 0.0
         if comments:
-            df = pd.DataFrame(comments)
-            
-            # sentiment
-            df["sentiment"] = df["text"].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
-            features["comment_sentiment_score"] = df["sentiment"].mean()
-            
-            # Interaction Quality: Sentiment * Interaction density
-            features["interaction_quality"] = (features["comment_sentiment_score"] + 1) / 2 * (1 + features["engagement_per_view"])
-            
-            # fatigue_keyword_ratio
-            fatigue_count = 0
-            for text in df["text"]:
-                if any(kw in str(text).lower() for kw in self.fatigue_keywords):
-                    fatigue_count += 1
-            features["fatigue_keyword_ratio"] = fatigue_count / len(comments)
-        else:
-            features["comment_sentiment_score"] = 0.5
-            features["fatigue_keyword_ratio"] = 0.1
+            sentiments = [TextBlob(c).sentiment.polarity for c in comments]
+            sentiment_score = sum(sentiments) / len(sentiments)
 
-        # 5. Engagement velocity & decay (simulated based on counts & age if time-series not available)
-        # In a real system, we'd compare against snapshots from previous days
-        features["engagement_velocity"] = likes / (features["trend_age"] + 1)
-        
-        # simulated decay rate (higher age usually means higher decay for viral trends)
-        features["engagement_decay_rate"] = 0.05 * features["trend_age"]
-        
-        # format_repetition_score (placeholder logic for demo)
-        features["format_repetition_score"] = min(0.9, (features["trend_age"] / 30))
-        
-        # Override for ultra-massive content (Legends don't saturate, they stabilize)
-        if views > 50000000:
-             features["format_repetition_score"] *= 0.1 # Very low saturation for legends
-             features["engagement_decay_rate"] *= 0.1   # Very low decay for legends
-        
-        # time_since_peak (placeholder: assume peak was midway for older trends)
-        features["time_since_peak"] = (features["trend_age"] * 12) if features["trend_age"] > 3 else 0
+        # 4. Compute Comment Fatigue (0 to 1)
+        # Ratio of duplicate/similar comments OR keyword matching
+        comment_fatigue = 0.0
+        if comments:
+            fatigue_count = sum(1 for c in comments if any(k in c.lower() for k in self.fatigue_keywords))
+            comment_fatigue = fatigue_count / len(comments)
+            
+            # Add repetition penalty (simple unique ratio)
+            unique_ratio = len(set(comments)) / len(comments)
+            repetition_score = 1.0 - unique_ratio
+            comment_fatigue = (comment_fatigue + repetition_score) / 2
 
-        return features
+        # 5. Influencer Ratio (Proxy/Placeholder)
+        # In full version, check if verified users commented. 
+        # For now, simulate based on view count (higher views usually = lower influencer ratio/mass market)
+        influencer_ratio = 0.5  # Neutral baseline
+        if views > 10_000_000:
+            influencer_ratio = 0.2 # Mass market, diluted
+        elif views < 100_000:
+            influencer_ratio = 0.7 # Niche, high influencer density
 
-    def process_and_register(self, request_id, metadata, comments):
-        """Compute features and store them in Feather"""
-        features = self.compute_features(metadata, comments)
-        feather.store_features(request_id, features)
-        return features
+        # 6. Posting Change (Proxy/Placeholder)
+        posting_change = -0.1 # Slight decay assumption for demo if no time-series data
+
+        # Return standard signal vector
+        return {
+            "engagement_velocity": round(norm_velocity, 4),
+            "sentiment_score": round(sentiment_score, 4),
+            "comment_fatigue": round(comment_fatigue, 4),
+            "influencer_ratio": round(influencer_ratio, 4),
+            "posting_change": round(posting_change, 4)
+        }
+
+ft_engine = FeatureEngine()

@@ -1,102 +1,97 @@
 import os
-import requests
-from googleapiclient.discovery import build
 from dotenv import load_dotenv
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from urllib.parse import urlparse, parse_qs
 
 load_dotenv()
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
-
 class YouTubeClient:
     def __init__(self):
-        self.youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY) if YOUTUBE_API_KEY else None
+        self.api_key = os.getenv("YOUTUBE_API_KEY")
+        if not self.api_key:
+            print("⚠️ WARNING: YOUTUBE_API_KEY not found in .env")
+            self.youtube = None
+        else:
+            try:
+                self.youtube = build("youtube", "v3", developerKey=self.api_key)
+            except Exception as e:
+                print(f"⚠️ Failed to initialize YouTube API: {e}")
+                self.youtube = None
 
-    def get_video_metadata(self, video_id):
-        """Fetch video metadata: title, description, tags, publishedAt, viewCount, likeCount, commentCount"""
-        if not self.youtube:
-            return self._get_mock_metadata(video_id)
-        
+    def extract_video_id(self, url):
+        """Extracts video ID from various YouTube URL formats."""
+        parsed_url = urlparse(url)
+        if parsed_url.hostname == 'youtu.be':
+            return parsed_url.path[1:]
+        if parsed_url.hostname in ('www.youtube.com', 'youtube.com'):
+            if parsed_url.path == '/watch':
+                p = parse_qs(parsed_url.query)
+                return p['v'][0]
+            if parsed_url.path[:7] == '/embed/':
+                return parsed_url.path.split('/')[2]
+            if parsed_url.path[:3] == '/v/':
+                return parsed_url.path.split('/')[2]
+        return None
+
+    def get_video_stats(self, video_id):
+        """Fetches viewCount, likeCount, commentCount."""
+        if not self.youtube: return None
         try:
             request = self.youtube.videos().list(
                 part="snippet,statistics",
                 id=video_id
             )
             response = request.execute()
+            if not response['items']: return None
             
-            if not response["items"]:
-                return None
-            
-            item = response["items"][0]
-            snippet = item["snippet"]
-            stats = item["statistics"]
+            stats = response['items'][0]['statistics']
+            snippet = response['items'][0]['snippet']
             
             return {
-                "title": snippet["title"],
-                "description": snippet["description"],
-                "tags": snippet.get("tags", []),
-                "publishedAt": snippet["publishedAt"],
+                "title": snippet.get("title", "Unknown"),
                 "viewCount": int(stats.get("viewCount", 0)),
                 "likeCount": int(stats.get("likeCount", 0)),
-                "commentCount": int(stats.get("commentCount", 0))
+                "commentCount": int(stats.get("commentCount", 0)),
+                "publishedAt": snippet.get("publishedAt", "")
             }
-        except Exception as e:
-            print(f"Error fetching YouTube metadata: {e}")
-            return self._get_mock_metadata(video_id)
+        except HttpError as e:
+            print(f"YouTube API Error: {e}")
+            return None
 
-    def get_video_comments(self, video_id, max_results=300):
-        """Fetch a limited number of comments: text, timestamp, likeCount"""
-        if not self.youtube:
-            return self._get_mock_comments(video_id)
-        
-        comments = []
+    def get_comments(self, video_id, max_results=50):
+        """Fetches top comments for sentiment analysis."""
+        if not self.youtube: return []
         try:
             request = self.youtube.commentThreads().list(
                 part="snippet",
                 videoId=video_id,
-                maxResults=min(100, max_results),
+                maxResults=max_results,
                 textFormat="plainText"
             )
+            response = request.execute()
             
-            while request and len(comments) < max_results:
-                response = request.execute()
-                for item in response.get("items", []):
-                    top_comment = item["snippet"]["topLevelComment"]["snippet"]
-                    comments.append({
-                        "text": top_comment["textDisplay"],
-                        "timestamp": top_comment["publishedAt"],
-                        "likeCount": int(top_comment.get("likeCount", 0))
-                    })
-                
-                if "nextPageToken" in response and len(comments) < max_results:
-                    request = self.youtube.commentThreads().list(
-                        part="snippet",
-                        videoId=video_id,
-                        pageToken=response["nextPageToken"],
-                        maxResults=min(100, max_results - len(comments)),
-                        textFormat="plainText"
-                    )
-                else:
-                    break
-            
+            comments = []
+            for item in response.get("items", []):
+                comment = item["snippet"]["topLevelComment"]["snippet"]["textDisplay"]
+                comments.append(comment)
             return comments
+        except Exception:
+            return []
+
+    def search_video(self, query):
+        """Searches for a video related to a trend keyword."""
+        if not self.youtube: return None
+        try:
+            request = self.youtube.search().list(
+                part="id,snippet",
+                q=query,
+                type="video",
+                maxResults=1,
+                order="relevance"
+            )
+            response = request.execute()
+            return response.get("items", [])
         except Exception as e:
-            print(f"Error fetching YouTube comments: {e}")
-            return self._get_mock_comments(video_id)
-
-    def _get_mock_metadata(self, video_id):
-        return {
-            "title": "Mock YouTube Video Title",
-            "description": "Mock description for trend analysis.",
-            "tags": ["trend", "analysis", "mock"],
-            "publishedAt": "2024-01-01T00:00:00Z",
-            "viewCount": 1500000,
-            "likeCount": 85000,
-            "commentCount": 4200
-        }
-
-    def _get_mock_comments(self, video_id):
-        return [
-            {"text": "This trend is dying.", "timestamp": "2024-01-02T10:00:00Z", "likeCount": 542},
-            {"text": "I see this everywhere, getting annoying.", "timestamp": "2024-01-02T11:00:00Z", "likeCount": 120},
-            {"text": "Great content!", "timestamp": "2024-01-02T12:00:00Z", "likeCount": 15}
-        ]
+            print(f"Search Error: {e}")
+            return None

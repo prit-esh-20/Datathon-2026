@@ -1,331 +1,355 @@
 import os
 from dotenv import load_dotenv
-from pytrends.request import TrendReq
-import requests
-from textblob import TextBlob
 import pandas as pd
 import random
-import time
 
-# Load environment variables
+# Import our modular components
+from youtube_client import YouTubeClient
+from feature_engine import ft_engine
+from ml_model import ml_classifier
+from explainability import xai_layer
+from genai_explainer import genai_explainer
+from usp_engine import usp_engine
+
 load_dotenv()
 
-# Check for API Keys
-SERPAPI_KEY = os.getenv("SERPAPI_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Initialize the YouTube Client
+yt_client = YouTubeClient()
 
-# Optional: Import official clients if installed
-try:
-    from serpapi import GoogleSearch
-    HAS_SERPAPI_LIB = True
-except ImportError:
-    HAS_SERPAPI_LIB = False
-
-# Configure Gemini if key is present
-HAS_GEMINI = False
-if GEMINI_API_KEY and "your_" not in GEMINI_API_KEY:
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        HAS_GEMINI = True
-    except ImportError:
-        print("Gemini SDK not installed.")
-        pass
-
-def generate_gemini_insight(topic, history, news_data, prediction):
+def analyze_trend_real(input_text: str):
     """
-    Uses Gemini to generate a human-like summary and action items.
-    """
-    if not HAS_GEMINI:
-        return None, None
-
-    try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        last_val = history[-1]['value'] if history else 0
-        first_val = history[0]['value'] if history else 0
-        slope = last_val - first_val
-        
-        prompt = f"""
-        Analyze the following trend data for the topic: "{topic}"
-        - Trend Direction (Slope): {slope} (Interest scale 0-100 over 7 days)
-        - Current Interest Level: {last_val}
-        - Media Sentiment Polarity: {news_data['avg_sentiment'] if news_data else 'Unknown'}
-        - Media Fatigue Score: {news_data['fatigue_score'] if news_data else 'Unknown'}%
-        - ML Predicted Risk: {prediction['risk_label']} ({prediction['risk_score']}% probability of collapse)
-        - Predicted Time to Decline: {prediction['predicted_time_to_decline']}
-
-        Task:
-        1. Write a 2-sentence punchy summary explaining why the trend is safe or dying. Be specific (use numbers).
-        2. Provide exactly 3 short, strategic action steps for a digital marketer.
-
-        Output Format:
-        Summary: [Your 2-sentence summary]
-        Actions:| [Action 1] | [Action 2] | [Action 3]
-        """
-        
-        response = model.generate_content(prompt)
-        text = response.text
-        
-        # Parse response
-        summary = ""
-        actions = []
-        
-        lines = text.split('\n')
-        for line in lines:
-            if line.startswith("Summary:"):
-                summary = line.replace("Summary:", "").strip()
-            if "Actions:|" in line or "Actions:" in line:
-                parts = line.split('|')
-                # Filter out empty strings and the header
-                actions = [p.strip() for p in parts if p.strip() and not p.strip().lower().startswith("actions")]
-        
-        if not summary or not actions:
-            return None, None
-            
-        return summary, actions[:3]
-    except Exception as e:
-        print(f"Gemini Error: {e}")
-        return None, None
-
-def get_google_trends_interest(topic):
-    history = []
+    Enhanced Main Orchestrator with Full USP Integration:
     
-    # ---------------------------------------------------------
-    # STRATEGY 1: Use SerpApi (Reliable & Paid)
-    # ---------------------------------------------------------
-    if SERPAPI_KEY and HAS_SERPAPI_LIB and "your_" not in SERPAPI_KEY:
-        try:
-            print(f"Using SerpApi (Trends) for: {topic}")
-            params = {
-                "engine": "google_trends",
-                "q": topic,
-                "api_key": SERPAPI_KEY,
-                "date": "now 7-d"
-            }
-            search = GoogleSearch(params)
-            results = search.get_dict()
-            
-            if "interest_over_time" in results:
-                timeline = results["interest_over_time"].get("timeline_data", [])
-                total_points = len(timeline)
-                step = max(1, total_points // 24)
-                
-                for i in range(0, total_points, step):
-                    point = timeline[i]
-                    idx = total_points - i
-                    val = point.get("values", [{}])[0].get("value", 0)
-                    history.append({"timestamp": f"{idx}h ago", "value": int(val)})
-                
-                if history:
-                    return history
-        except Exception as e:
-            print(f"SerpApi (Trends) Failed: {e}")
-
-    # ---------------------------------------------------------
-    # STRATEGY 2: Use Pytrends (Free & Flaky)
-    # ---------------------------------------------------------
-    try:
-        print("Using Pytrends Fallback...")
-        # TIMEOUT SAFETY: Google Trends can hang.
-        pytrends = TrendReq(hl='en-US', tz=360, retries=1, backoff_factor=0.1, timeout=(5,5))
-        kw_list = [topic]
-        
-        pytrends.build_payload(kw_list, cat=0, timeframe='now 7-d', geo='', gprop='')
-        interest_over_time_df = pytrends.interest_over_time()
-        
-        if interest_over_time_df.empty:
-            return None
-
-        if topic not in interest_over_time_df.columns:
-             return None
-
-        data_points = interest_over_time_df[topic].tolist()
-        step = max(1, len(data_points) // 24)
-        
-        for i in range(0, len(data_points), step):
-             history.append({"timestamp": f"{len(data_points) - i}h ago", "value": int(data_points[i])})
-                
-        return history
-    except Exception as e:
-        print(f"Google Trends (Pytrends) Error: {e}")
-        return None
-
-def get_news_sentiment(topic):
-    """
-    Analyzes news headlines to determine sentiment.
-    Uses SerpApi (Google News) if available, otherwise mocks it.
+    Pipeline:
+    1. Data Ingestion (YouTube API)
+    2. Feature Extraction (Universal Signals)
+    3. ML Prediction (Proxy Model)
+    4. SHAP Explanation (XAI)
+    5. USP Logic (Cringe Point, ROI, Lifecycle)
+    6. GenAI Explanation (Executive Summary)
+    7. Decision Justification Formatting
     """
     
-    # ---------------------------------------------------------
-    # STRATEGY 1: Use SerpApi (Google News)
-    # ---------------------------------------------------------
-    if SERPAPI_KEY and HAS_SERPAPI_LIB and "your_" not in SERPAPI_KEY:
-        try:
-            print(f"Using SerpApi (News) for: {topic}")
-            params = {
-                "engine": "google_news",
-                "q": topic,
-                "api_key": SERPAPI_KEY,
-                "gl": "us",
-                "hl": "en"
-            }
-            search = GoogleSearch(params)
-            results = search.get_dict()
-            
-            news_results = results.get("news_results", [])
-            
-            sentiments = []
-            titles = []
-            
-            for news in news_results[:10]: # Analyze top 10 headlines
-                title = news.get("title", "")
-                titles.append(title)
-                try:
-                    analysis = TextBlob(title)
-                    sentiments.append(analysis.sentiment.polarity)
-                except:
-                    pass
-            
-            if not sentiments: return None
-            
-            avg_sentiment = sum(sentiments) / len(sentiments)
-            
-            # Fatigue Logic for News:
-            neg_count = sum(1 for s in sentiments if s < -0.1)
-            fatigue_score = (neg_count / len(sentiments)) * 100 if sentiments else 30
-            
-            return {
-                "avg_sentiment": avg_sentiment,
-                "fatigue_score": int(fatigue_score),
-                "sample_titles": titles[:3]
-            }
-
-        except Exception as e:
-            print(f"SerpApi (News) Failed: {e}")
-
-    # ---------------------------------------------------------
-    # STRATEGY 2: Mock Fallback
-    # ---------------------------------------------------------
-    print("No News API available. Returning None.")
-    return None
-
-def analyze_trend_real(topic):
-    print(f"Starting Real Analysis for: {topic}")
+    # --- 1. DATA INGESTION ---
+    is_url = "youtube.com" in input_text or "youtu.be" in input_text
     
-    # 1. Fetch Google Trends Data
-    trend_history = get_google_trends_interest(topic)
+    video_data = {}
+    comments = []
+    trend_name = input_text
     
-    # 2. Fetch News Sentiment
-    news_data = get_news_sentiment(topic)
-    
-    # 3. Fallback to Simulation if Real Data Fails
-    if not trend_history:
-        print("Falling back to simulation (No Trends Data)")
-        return None 
-
-    # 4. Calculate Risk Score using ML Model
-    try:
-        last_val = trend_history[-1]['value']
-        first_val = trend_history[0]['value']
-        slope = last_val - first_val
+    if is_url:
+        print(f"🔗 Detected YouTube URL: {input_text}")
+        video_id = yt_client.extract_video_id(input_text)
         
-        # Prepare Features for ML
-        sentiment_input = news_data['avg_sentiment'] if news_data else 0
-        fatigue_input = news_data['fatigue_score'] if news_data else 30
-        
-        # ML PREDICTION
-        from ml_model import trend_model
-        prediction = trend_model.predict_risk(slope, sentiment_input, fatigue_input)
-        
-        # 5. GENERATE AI INSIGHTS
-        ai_summary, ai_actions = generate_gemini_insight(topic, trend_history, news_data, prediction)
-        
-        risk_score = prediction["risk_score"]
-        decline_risk = prediction["risk_label"]
-        decline_prob = prediction["decline_probability"]
-        time_to_decline = prediction["predicted_time_to_decline"]
-        
-        summary = ai_summary if ai_summary else ""
-        signals = []
-        actions = ai_actions if ai_actions else []
-
-        # Fallback Template Summary if AI failed
-        if not summary:
-            if slope < -5:
-                # Override risk score if slope is catastrophic
-                risk_score = max(risk_score, min(98, 70 + abs(slope)))
-                decline_risk = "High" 
-                summary = f"CRITICAL: Interest in '{topic}' has plummeted. Probability of collapse: {int(decline_prob*100)}%."
-                actions = ["Exit immediately", "Do not invest", "Archive content"]
-            elif slope < -2:
-                summary = f"WARNING: '{topic}' is showing signs of fatigue. Estimated decline in {time_to_decline}."
-                actions = ["Monitor closely", "Prepare pivot", "Reduce spend"]
-            else:
-                summary = f"OPPORTUNITY: Growth detected. Stability forecast: {time_to_decline}."
-                actions = ["Maximize reach", "Invest now", "Create content"]
-
-        # Add Data Signals
-        signals.append({"metric": "Engagement Velocity", "status": "Critical" if slope < -5 else "Warning" if slope < -2 else "Good", "explanation": f"{'Growth' if slope >=0 else 'Decline'} of {abs(slope)} pts."})
-        
-        if news_data:
-             if news_data['avg_sentiment'] < -0.1:
-                 signals.append({"metric": "News Sentiment", "status": "Bad", "explanation": "Headlines are largely negative."})
-             elif news_data['avg_sentiment'] > 0.2:
-                 signals.append({"metric": "News Sentiment", "status": "Good", "explanation": "Media coverage is positive."})
-             else:
-                 signals.append({"metric": "News Sentiment", "status": "Warning", "explanation": "Mixed/Neutral coverage."})
-
-             if news_data['fatigue_score'] > 60:
-                  signals.append({"metric": "Media Saturation", "status": "Bad", "explanation": f"High intensity ({int(news_data['fatigue_score'])}% stress)."})
+        if video_id:
+            video_data = yt_client.get_video_stats(video_id) or {}
+            comments = yt_client.get_comments(video_id) or []
+            trend_name = video_data.get("title", "Unknown Campaign")
+            print(f"✅ Fetched Data for: {trend_name}")
         else:
-             signals.append({"metric": "News Sentiment", "status": "Warning", "explanation": "No news data available."})
+            print("❌ Invalid YouTube URL")
+            return None 
+    else:
+        print(f"🔍 Detected Keyword: {input_text} (Using Simulation)")
+        return _get_simulation_fallback(input_text)
 
-        # Normalize sentiment for UI driver chart (100 = Bad, 0 = Good)
-        sentiment_driver_val = int((1 - sentiment_input) * 50)
+    # --- 2. FEATURE ENGINEERING ---
+    print("🚀 Starting Feature Engineering...")
+    signals = ft_engine.compute_signals(video_data, comments)
+    print("✅ Feature Engineering complete")
+    
+    # --- 3. ML PREDICTION ---
+    print("🚀 Starting ML Prediction...")
+    prediction = ml_classifier.predict_risk(signals)
+    risk_score = prediction["risk_score"]
+    print(f"✅ ML Prediction complete (Risk: {risk_score})")
+    
+    # --- 4. ENHANCED XAI (SHAP + Rule-Based) ---
+    print("🚀 Starting XAI Explanation...")
+    explanation = xai_layer.generate_decision_justification(
+        signals, 
+        risk_score,
+        ml_model=ml_classifier.model  # Pass model for SHAP
+    )
+    print("✅ XAI Explanation complete")
+    
+    # --- 5. USP LOGIC LAYERS ---
+    print("🚀 Starting USP Logic...")
+    
+    # 5a. Cringe Point Detection
+    cringe_result = usp_engine.detect_cringe_point(signals, risk_score)
+    
+    # 5b. Lifecycle Classification
+    lifecycle_result = usp_engine.classify_lifecycle(risk_score, signals)
+    
+    # 5c. ROI Calculation
+    decline_days = _extract_decline_days(prediction["decline_window"])
+    roi_result = usp_engine.calculate_roi(risk_score, decline_days)
+    
+    # 5d. Prepare SHAP drivers for GenAI
+    shap_drivers = explanation.get("shap_drivers", [])
+    print("✅ USP Logic complete")
+    
+    # --- 6. GENAI EXPLANATION ---
+    print("🚀 Starting GenAI Explanation...")
+    genai_summary = genai_explainer.generate_executive_summary(
+        risk_score=risk_score,
+        shap_drivers=shap_drivers if shap_drivers else _fallback_shap_format(explanation["top_signals"]),
+        lifecycle_stage=lifecycle_result["stage"],
+        is_cringe_point=cringe_result["is_cringe_point"]
+    )
+    print("✅ GenAI Explanation complete")
+    
+    # --- 7. DECISION JUSTIFICATION ---
+    print("🚀 Formatting Decision Justification...")
+    decision_justification = usp_engine.format_decision_justification(
+        risk_score=risk_score,
+        shap_drivers=shap_drivers if shap_drivers else _fallback_shap_format(explanation["top_signals"]),
+        genai_summary=genai_summary,
+        cringe_result=cringe_result,
+        roi_result=roi_result,
+        lifecycle_result=lifecycle_result
+    )
+    
+    # --- 8. RECOMMENDED ACTION WITH ROI ---
+    recommended_action = genai_explainer.generate_recommended_action(
+        risk_score, 
+        roi_result["estimated_savings"],
+        cringe_result["is_cringe_point"]
+    )
+    
+    # --- 9. FORMAT SIGNALS FOR UI ---
+    formatted_signals = _format_signals_for_ui(signals, shap_drivers)
+    
+    # --- 10. FORMAT DRIVERS FOR CHART ---
+    formatted_drivers = _format_drivers_for_chart(shap_drivers, explanation["top_signals"])
 
-        decline_drivers = [
-            {"label": "Saturation", "value": int(max(10, min(100, (risk_score + 10)))), "fullMark": 100},
-            {"label": "Fatigue", "value": int(fatigue_input), "fullMark": 100},
-            {"label": "Sentiment", "value": sentiment_driver_val, "fullMark": 100},
-            {"label": "Algo Shift", "value": random.randint(20, 60), "fullMark": 100},
-            {"label": "Disengage", "value": int(max(0, 100 - last_val)) if last_val < 100 else 20, "fullMark": 100},
-        ]
-
-        # Map primary driver for the backend
-        sorted_drivers = sorted(decline_drivers, key=lambda x: x["value"], reverse=True)
-        primary_driver = sorted_drivers[0]["label"]
-
-        # Feature Breakdown as per User Request (Top 3)
-        total_driver_vals = sum(d["value"] for d in decline_drivers)
-        feature_breakdown = {}
-        for d in sorted_drivers[:3]:
-            # Normalize to 0.0 - 1.0 range
-            impact = d["value"] / total_driver_vals if total_driver_vals > 0 else 0
-            feature_breakdown[d["label"]] = round(impact, 2)
-
-        return {
-            "inputType": "keyword",
-            "detectedTrend": topic.title(),
-            "declineRisk": int(risk_score),
-            "timeWindow": time_to_decline,
-            "primaryDriver": primary_driver,
-            "featureBreakdown": feature_breakdown,
-            "explanation": summary,
-            "recommendedAction": actions[0] if actions else "Audit market segment",
-            "confidence": 0.7 + (random.random() * 0.2),
-            "insight": {
-                "riskScore": int(risk_score),
-                "declineRisk": decline_risk,
-                "decline_probability": decline_prob,
-                "predicted_time_to_decline": time_to_decline,
-                "summary": summary,
-                "signals": signals,
-                "decline_drivers": decline_drivers,
-                "actions": actions
-            },
-            "trend": trend_history
+    # --- 11. RETURN ENHANCED JSON ---
+    print("✅ Analysis Complete. Returning JSON.")
+    return {
+        "inputType": "url",
+        "detectedTrend": trend_name,
+        "declineRisk": int(risk_score),
+        "timeWindow": prediction["decline_window"],
+        "primaryDriver": explanation["primary_driver"],
+        "featureBreakdown": signals,
+        "explanation": genai_summary,  # GenAI-powered explanation
+        "recommendedAction": recommended_action,
+        "confidence": decision_justification["confidence_score"],
+        
+        # Enhanced Insight Object with ALL USPs
+        "trend": {
+            "history": [
+                {"timestamp": f"Day {i}", "value": max(0, int(100 - (i * (risk_score/12)) + random.randint(-5, 5)))}
+                for i in range(1, 8)
+            ]
+        },
+        "insight": {
+            "riskScore": int(risk_score),
+            "declineRisk": prediction["risk_level"],
+            "decline_probability": risk_score / 100.0,
+            "predicted_time_to_decline": prediction["decline_window"],
+            "summary": genai_summary,
+            "signals": formatted_signals,
+            "decline_drivers": formatted_drivers,
+            "actions": [recommended_action, lifecycle_result["strategic_advice"]],
+            
+            # NEW: USP Fields
+            "roi_savings": roi_result["estimated_savings"],
+            "is_cringe_point": cringe_result["is_cringe_point"],
+            "cringe_severity": cringe_result["severity"],
+            "lifecycle_stage": lifecycle_result["stage"],
+            "xai_method": explanation.get("explanation_method", "rule-based"),
+            "shap_drivers": shap_drivers[:3] if shap_drivers else [],
+            "decision_justification": decision_justification
         }
-    except Exception as e:
-        print(f"Error calculating stats: {e}")
-        return None
+    }
+
+
+def _get_simulation_fallback(trend_name):
+    """Enhanced simulation with USP support."""
+    
+    random.seed(trend_name)
+    base_risk = random.randint(20, 95)
+    
+    # Simulate signals
+    signals = {
+        "engagement_velocity": -0.5 if base_risk > 70 else 0.5,
+        "sentiment_score": -0.6 if base_risk > 70 else 0.4,
+        "comment_fatigue": 0.8 if base_risk > 70 else 0.2,
+        "influencer_ratio": 0.2 if base_risk > 70 else 0.6,
+        "posting_change": -0.3
+    }
+    
+    prediction = ml_classifier.predict_risk(signals)
+    risk_score = prediction["risk_score"]
+    
+    # Run USP engines
+    explanation = xai_layer.generate_decision_justification(signals, risk_score)
+    cringe_result = usp_engine.detect_cringe_point(signals, risk_score)
+    lifecycle_result = usp_engine.classify_lifecycle(risk_score, signals)
+    decline_days = _extract_decline_days(prediction["decline_window"])
+    roi_result = usp_engine.calculate_roi(risk_score, decline_days)
+    
+    # GenAI summary
+    genai_summary = genai_explainer.generate_executive_summary(
+        risk_score, 
+        _fallback_shap_format(explanation["top_signals"]),
+        lifecycle_result["stage"],
+        cringe_result["is_cringe_point"]
+    )
+    
+    recommended_action = genai_explainer.generate_recommended_action(
+        risk_score, 
+        roi_result["estimated_savings"],
+        cringe_result["is_cringe_point"]
+    )
+    
+    drivers = [
+        {"label": "Fatigue", "value": random.randint(20, 40), "fullMark": 100},
+        {"label": "Sentiment", "value": random.randint(10, 30), "fullMark": 100},
+        {"label": "Saturation", "value": random.randint(10, 20), "fullMark": 100}
+    ]
+    
+    formatted_signals = [
+        {"metric": "Sentiment", "status": "Risk" if base_risk > 50 else "Good", 
+         "explanation": "Simulated signal based on keyword analysis."}
+    ]
+
+    return {
+        "inputType": "keyword",
+        "detectedTrend": trend_name,
+        "declineRisk": int(risk_score),
+        "timeWindow": prediction["decline_window"],
+        "primaryDriver": explanation["primary_driver"],
+        "featureBreakdown": signals,
+        "explanation": genai_summary,
+        "recommendedAction": recommended_action,
+        "confidence": 0.75,
+        
+        "trend": {
+            "history": [
+                {"timestamp": f"Day {i}", "value": max(0, int(100 - (i * (risk_score/12)) + random.randint(-5, 5)))}
+                for i in range(1, 8)
+            ]
+        },
+
+        "insight": {
+            "riskScore": int(risk_score),
+            "declineRisk": prediction["risk_level"],
+            "decline_probability": risk_score / 100.0,
+            "predicted_time_to_decline": prediction["decline_window"],
+            "summary": genai_summary,
+            "signals": formatted_signals,
+            "decline_drivers": drivers,
+            "actions": [recommended_action, "Analyze Competitors"],
+            
+            # USP Fields
+            "roi_savings": roi_result["estimated_savings"],
+            "is_cringe_point": cringe_result["is_cringe_point"],
+            "cringe_severity": cringe_result["severity"],
+            "lifecycle_stage": lifecycle_result["stage"],
+            "xai_method": "rule-based",
+            "shap_drivers": [],
+            "decision_justification": usp_engine.format_decision_justification(
+                risk_score, 
+                _fallback_shap_format(explanation["top_signals"]),
+                genai_summary, 
+                cringe_result, 
+                roi_result, 
+                lifecycle_result
+            )
+        }
+    }
+
+
+# --- HELPER FUNCTIONS ---
+
+def _extract_decline_days(decline_window: str) -> int:
+    """Extract number of days from decline window string."""
+    if "24" in decline_window or "Hours" in decline_window:
+        return 1
+    elif "3-5" in decline_window:
+        return 4
+    elif "1-2 Weeks" in decline_window:
+        return 10
+    else:
+        return 30
+
+
+def _fallback_shap_format(top_signals: list) -> list:
+    """Convert rule-based signals to SHAP-like format for GenAI."""
+    return [
+        {
+            "label": signal,
+            "contribution": 0.3 if i == 0 else 0.2,
+            "shap_value": 0.3 if i == 0 else 0.2
+        }
+        for i, signal in enumerate(top_signals[:3])
+    ]
+
+
+def _format_signals_for_ui(signals: dict, shap_drivers: list) -> list:
+    """Format signals with SHAP-informed status indicators."""
+    
+    feature_map = {
+        "engagement_velocity": "Engagement Momentum",
+        "sentiment_score": "Audience Sentiment",
+        "comment_fatigue": "Content Fatigue",
+        "influencer_ratio": "Influencer Activity",
+        "posting_change": "Post Frequency"
+    }
+    
+    # Get risk features from SHAP if available
+    risky_features = set()
+    if shap_drivers:
+        risky_features = {d["feature"] for d in shap_drivers[:3] if d["direction"] == "negative"}
+    
+    formatted = []
+    for key, val in signals.items():
+        status = "Normal"
+        expl = "Stable metric."
+        
+        # Use SHAP-informed status if available
+        if key in risky_features:
+            status = "Risk"
+            expl = "Significant contributor to decline risk (SHAP-verified)."
+        # Fallback to rule-based
+        elif (key == "sentiment_score" and val < -0.2) or \
+             (key == "engagement_velocity" and val < -0.2) or \
+             (key == "comment_fatigue" and val > 0.4):
+            status = "Risk"
+            expl = "Contributes to decline risk."
+            
+        formatted.append({
+            "metric": feature_map.get(key, key),
+            "status": status,
+            "explanation": expl
+        })
+    
+    return formatted
+
+
+def _format_drivers_for_chart(shap_drivers: list, fallback_signals: list) -> list:
+    """Format drivers for pie chart visualization."""
+    
+    if shap_drivers:
+        # Use SHAP contributions
+        return [
+            {
+                "label": d["label"][:25] + "..." if len(d["label"]) > 25 else d["label"],
+                "value": int(d["contribution"] * 100),
+                "fullMark": 100
+            }
+            for d in shap_drivers[:4]
+        ]
+    else:
+        # Use fallback
+        return [
+            {
+                "label": reason[:20] + "...",
+                "value": random.randint(15, 30),
+                "fullMark": 100
+            }
+            for reason in fallback_signals[:3]
+        ]

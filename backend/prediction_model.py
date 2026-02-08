@@ -62,3 +62,26 @@ class DeclineModel:
         }
 
 model = DeclineModel()
+
+
+def map_risk_level(risk_score: float) -> str:
+    if risk_score >= 85:
+        return "CRITICAL"
+    elif risk_score >= 70:
+        return "HIGH"
+    elif risk_score >= 40:
+        return "MEDIUM"
+    else:
+        return "LOW"
+
+
+def map_lifecycle_stage(risk_score: float) -> str:
+    if risk_score >= 85:
+        return "Zombie"
+    elif risk_score >= 70:
+        return "Decay"
+    elif risk_score >= 40:
+        return "Peak"
+    else:
+        return "Growth"
+    

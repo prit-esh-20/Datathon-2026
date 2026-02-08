@@ -628,7 +628,7 @@ function App() {
                             riskScore={displayedResult.insight.riskScore}
                             signals={displayedResult.insight.signals || []}
                             drivers={displayedResult.insight.decline_drivers || []}
-                            primaryDriver={displayedResult.primaryDriver}
+                            primaryDriver={displayedResult.primaryDriver || displayedResult.insight.primary_driver}
                           />
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -639,7 +639,7 @@ function App() {
                               </h3>
                               <div className="h-[200px]">
                                 <TrendChart
-                                  data={displayedResult.trend.history || displayedResult.trend}
+                                  data={Array.isArray(displayedResult.trend) ? displayedResult.trend : (displayedResult.trend?.history || [])}
                                   color={displayedResult.insight.riskScore > 75 ? "#ff003c" : "#00f3ff"}
                                   subtitle="Estimated trend trajectory"
                                 />

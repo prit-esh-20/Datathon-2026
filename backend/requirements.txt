@@ -1,15 +1,13 @@
 fastapi
 uvicorn
-pydantic
 python-dotenv
-requests
 pandas
-textblob
+numpy
 scikit-learn
-# Legacy Scrapers (Keep for fallback)
-pytrends
-# New API Clients
-google-search-results
-# praw (removed)
-google-generativeai
 google-api-python-client
+textblob
+pydantic
+requests
+shap
+google-generativeai
+matplotlib

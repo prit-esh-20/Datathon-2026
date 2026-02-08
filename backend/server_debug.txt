@@ -1,0 +1,162 @@
+﻿Γ£à Proxy ML Model (LogisticRegression) trained successfully.
+uvicorn : D:\Projects
+\Hackathons\Datathon_
+\Datathon-2026\backen
+d\genai_explainer.py:
+7: FutureWarning: 
+At line:1 char:57
++ ... "; $env:PYTHONU
+NBUFFERED=1; uvicorn 
+main:app --port 8000 
+2>&1 | Out-F ...
++                    
+             ~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (D:\Proj   
+ ects\Hac...Futur    
+eWarning: :Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+
+All support for the `
+google.generativeai` 
+package has ended. 
+It will no longer be 
+receiving 
+updates or bug 
+fixes. Please switch 
+to the 
+`google.genai` 
+package as soon as 
+possible.
+See README for more 
+details:
+
+https://github.com/go
+ogle-gemini/deprecate
+d-generative-ai-pytho
+n/blob/main/README.md
+
+  import 
+google.generativeai 
+as genai
+Γ£à Gemini AI initialized successfully
+≡ƒöÑ TREND ENGINE FILE: D:\Projects\Hackathons\Datathon_\Datathon-2026\backend\trend_engine.py
+≡ƒöÑ FALLBACK SOURCE:
+def _get_simulation_fallback(trend_name):
+    """Enhanced simulation with USP support."""
+    
+    random.seed(trend_name)
+    base_risk = random.randint(20, 95)
+    
+    # Simulate signals
+    signals = {
+        "engagement_velocity": -0.5 if base_risk > 70 else 0.5,
+        "sentiment_score": -0.6 if base_risk > 70 else 0.4,
+        "comment_fatigue": 0.8 if base_risk > 70 else 0.2,
+        "influencer_ratio": 0.2 if base_risk > 70 else 0.6,
+        "posting_change": -0.3
+    }
+    
+    prediction = ml_classifier.predict_risk(signals)
+    risk_score = prediction["risk_score"]
+    
+    # Run USP engines
+    explanation = xai_layer.generate_decision_justification(signals, risk_score)
+    cringe_result = usp_engine.detect_cringe_point(signals, risk_score)
+    lifecycle_result = usp_engine.classify_lifecycle(risk_score, signals)
+    decline_days = _extract_decline_days(prediction["decline_window"])
+    roi_result = usp_engine.calculate_roi(risk_score, decline_days)
+    
+    # GenAI summary
+    genai_summary = genai_explainer.generate_executive_summary(
+        risk_score, 
+        _fallback_shap_format(explanation["top_signals"]),
+        lifecycle_result["stage"],
+        cringe_result["is_cringe_point"]
+    )
+    
+    recommended_action = genai_explainer.generate_recommended_action(
+        risk_score, 
+        roi_result["estimated_savings"],
+        cringe_result["is_cringe_point"]
+    )
+    
+    drivers = [
+        {"label": "Fatigue", "value": random.randint(20, 40), "fullMark": 100},
+        {"label": "Sentiment", "value": random.randint(10, 30), "fullMark": 100},
+        {"label": "Saturation", "value": random.randint(10, 20), "fullMark": 100}
+    ]
+    
+    formatted_signals = [
+        {"metric": "Sentiment", "status": "Risk" if base_risk > 50 else "Good", 
+         "explanation": "Simulated signal based on keyword analysis."}
+    ]
+
+    return {
+        "inputType": "keyword",
+        "detectedTrend": trend_name,
+        "declineRisk": int(risk_score),
+        "timeWindow": prediction["decline_window"],
+        "primaryDriver": explanation["primary_driver"],
+        "featureBreakdown": signals,
+        "explanation": genai_summary,
+        "recommendedAction": recommended_action,
+        "confidence": 0.75,
+        
+        "trend": {
+            "history": [
+                {"timestamp": f"Day {i}", "value": max(0, int(100 - (i * (risk_score/12)) + random.randint(-5, 5)))}
+                for i in range(1, 8)
+            ]
+        },
+
+        "insight": {
+            "riskScore": int(risk_score),
+            "declineRisk": prediction["risk_level"],
+            "decline_probability": risk_score / 100.0,
+            "predicted_time_to_decline": prediction["decline_window"],
+            "summary": genai_summary,
+            "signals": formatted_signals,
+            "decline_drivers": drivers,
+            "actions": [recommended_action, "Analyze Competitors"],
+            
+            # USP Fields
+            "roi_savings": roi_result["estimated_savings"],
+            "is_cringe_point": cringe_result["is_cringe_point"],
+            "cringe_severity": cringe_result["severity"],
+            "lifecycle_stage": lifecycle_result["stage"],
+            "xai_method": "rule-based",
+            "shap_drivers": [],
+            "decision_justification": usp_engine.format_decision_justification(
+                risk_score, 
+                _fallback_shap_format(explanation["top_signals"]),
+                genai_summary, 
+                cringe_result, 
+                roi_result, 
+                lifecycle_result
+            )
+        }
+    }
+
+≡ƒöÑ SERVER RESTARTED WITH PATCH v2 ≡ƒöÑ
+INFO:     Started 
+server process 
+[19484]
+INFO:     Waiting 
+for application 
+startup.
+INFO:     
+Application startup 
+complete.
+INFO:     Uvicorn 
+running on http://127
+.0.0.1:8000 (Press 
+CTRL+C to quit)

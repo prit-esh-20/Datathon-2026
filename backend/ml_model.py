@@ -1,102 +1,92 @@
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-import random
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 class TrendRiskClassifier:
     def __init__(self):
-        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
-        self.is_trained = False
+        self.model = None
         self._train_synthetic_model()
 
     def _train_synthetic_model(self):
         """
-        Since we don't have a massive labeled dataset of "failed trends",
-        we train the model on 'Synthetic Expert Logic'.
-        
-        Features: 
-        1. Trend Slope (Interest Velocity): -100 to 100
-        2. Sentiment Score: -1.0 (Hate) to 1.0 (Love)
-        3. Fatigue Score: 0 (Fresh) to 100 (Bored)
-        
-        Labels:
-        0 = Low Risk (Growth)
-        1 = Medium Risk (Stagnation)
-        2 = High Risk (Collapse)
+        Trains a Proxy ML Model (Logistic Regression) on synthetic behavioral data.
+        This acts as the 'Brain' of the system.
         """
-        X = []
-        y = []
+        # 1. Generate Synthetic Data (Simulating Trend Behavior)
+        np.random.seed(42)
+        n_samples = 1000
+        
+        data = pd.DataFrame({
+            "engagement_velocity": np.random.uniform(-1, 1, n_samples),
+            "sentiment_score": np.random.uniform(-1, 1, n_samples),
+            "comment_fatigue": np.random.uniform(0, 1, n_samples),
+            "influencer_ratio": np.random.uniform(0, 1, n_samples),
+            "posting_change": np.random.uniform(-1, 1, n_samples),
+        })
 
-        # Generate 1000 synthetic samples to teach the "rules"
-        for _ in range(1000):
-            slope = random.uniform(-50, 50)
-            sentiment = random.uniform(-1, 1)
-            fatigue = random.uniform(0, 100)
-            
-            # Helper logic to define "Ground Truth" for training
-            if slope < -10 and (sentiment < -0.2 or fatigue > 60):
-                label = 2 # High Risk (Crashing + Hated/Bored)
-            elif slope < -2:
-                label = 1 # Medium Risk (Slow decline)
-            elif slope > 5 and sentiment > 0.2:
-                label = 0 # Low Risk (Growing + Loved)
-            elif fatigue > 80:
-                label = 2 # High Risk (Even if growing, high fatigue = bubble pop)
-            else:
-                label = 1 # Uncertainty -> Medium
+        # 2. Define Decline Logic (Ground Truth for the Proxy)
+        # Decline happens if: Sentiment is bad OR Engagement drops OR Influencers leave
+        data["decline"] = (
+            (data["sentiment_score"] < -0.2) |
+            (data["engagement_velocity"] < -0.3) |
+            (data["influencer_ratio"] < 0.3)
+        ).astype(int)
 
-            X.append([slope, sentiment, fatigue])
-            y.append(label)
+        X = data.drop("decline", axis=1)
+        y = data["decline"]
 
+        # 3. Create & Train Pipeline
+        self.model = Pipeline([
+            ("scaler", StandardScaler()),
+            ("classifier", LogisticRegression(random_state=42))
+        ])
+        
         self.model.fit(X, y)
-        self.is_trained = True
-        print("ML Model: Random Forest Trained on 1000 synthetic patterns.")
+        print("✅ Proxy ML Model (LogisticRegression) trained successfully.")
 
-    def predict_risk(self, slope, sentiment, fatigue):
+    def predict_risk(self, signals: dict) -> dict:
         """
-        Returns:
-        - risk_score (0-100) based on class probability
-        - risk_label (Low, Medium, High)
+        Takes a dictionary of 5 signals and returns risk score + metadata.
         """
-        if not self.is_trained:
-            return 50, "Medium"
-
-        # Predict probabilities
-        # classes are [0, 1, 2] usually
-        probs = self.model.predict_proba([[slope, sentiment, fatigue]])[0]
+        # Ensure input order matches training
+        feature_order = [
+            "engagement_velocity", "sentiment_score", "comment_fatigue", 
+            "influencer_ratio", "posting_change"
+        ]
         
-        # Risk Score Calculation:
-        # Low(0)*0 + Medium(1)*50 + High(2)*100
-        # Actually better: P(Medium)*50 + P(High)*100
+        # Create DataFrame for single prediction
+        input_df = pd.DataFrame([signals], columns=feature_order)
         
-        # Check class order in sklearn (usually sorted)
-        # 0: Low, 1: Medium, 2: High
-        # Get class probabilities
-        # 0: Low, 1: Medium, 2: High
-        p_low = probs[0]
-        p_med = probs[1] if len(probs) > 1 else 0
-        p_high = probs[2] if len(probs) > 2 else 0
-
-        # Risk Score Calculation
-        risk_score = (p_med * 50) + (p_high * 95)
+        # Predict probability of decline (Class 1)
+        risk_prob = self.model.predict_proba(input_df)[0][1]
+        risk_score = round(risk_prob * 100, 2)
         
-        # Determine Label
-        if risk_score > 75:
-            label = "High"
-            # High risk = fast decline
-            time_estimate = "< 24 Hours" if p_high > 0.8 else "24-48 Hours"
-        elif risk_score > 35:
-            label = "Medium"
-            time_estimate = "3-7 Days"
-        else:
-            label = "Low"
-            time_estimate = "Stable (> 30 Days)"
-
         return {
-            "risk_score": int(risk_score),
-            "risk_label": label,
-            "decline_probability": round(float(p_high + (p_med * 0.5)), 2), # Composite prob of "not good"
-            "predicted_time_to_decline": time_estimate
+            "risk_score": risk_score,
+            "risk_level": self._map_risk_level(risk_score),
+            "decline_window": self._map_decline_window(risk_score),
+            "lifecycle_stage": self._map_lifecycle_stage(risk_score)
         }
 
-# Singleton instance
-trend_model = TrendRiskClassifier()
+    def _map_risk_level(self, score):
+        if score >= 85: return "CRITICAL"
+        if score >= 70: return "HIGH"
+        if score >= 40: return "MEDIUM"
+        return "LOW"
+
+    def _map_decline_window(self, score):
+        if score >= 85: return "< 24 Hours"
+        if score >= 70: return "3-5 Days"
+        if score >= 40: return "1-2 Weeks"
+        return "Stable (> 30 Days)"
+
+    def _map_lifecycle_stage(self, score):
+        if score >= 85: return "Zombie"   # Dead but moving
+        if score >= 70: return "Decay"    # Actively falling
+        if score >= 40: return "Peak"     # Saturation point
+        return "Growth"                   # Healthy
+
+# Singleton Instance
+ml_classifier = TrendRiskClassifier()
