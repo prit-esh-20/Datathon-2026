@@ -12,11 +12,11 @@ class TrendRiskClassifier:
     def _train_synthetic_model(self):
         """
         Trains a Proxy ML Model (Logistic Regression) on synthetic behavioral data.
-        This acts as the 'Brain' of the system.
+        Now uses matched features from the Feather Feature Store.
         """
         # 1. Generate Synthetic Data (Simulating Trend Behavior)
         np.random.seed(42)
-        n_samples = 1000
+        n_samples = 1500 # More samples for more features
         
         data = pd.DataFrame({
             "engagement_velocity": np.random.uniform(-1, 1, n_samples),
@@ -24,14 +24,21 @@ class TrendRiskClassifier:
             "comment_fatigue": np.random.uniform(0, 1, n_samples),
             "influencer_ratio": np.random.uniform(0, 1, n_samples),
             "posting_change": np.random.uniform(-1, 1, n_samples),
+            "trend_age": np.random.uniform(1, 100, n_samples),
+            "engagement_per_view": np.random.uniform(0, 0.2, n_samples),
+            "interaction_quality": np.random.uniform(-1, 1, n_samples),
+            "fatigue_keyword_ratio": np.random.uniform(0, 1, n_samples),
+            "engagement_decay_rate": np.random.uniform(0, 0.5, n_samples),
+            "format_repetition_score": np.random.uniform(0, 1, n_samples)
         })
 
         # 2. Define Decline Logic (Ground Truth for the Proxy)
-        # Decline happens if: Sentiment is bad OR Engagement drops OR Influencers leave
+        # Decline happens if: Sentiment is bad + high fatigue + aging trend
         data["decline"] = (
-            (data["sentiment_score"] < -0.2) |
-            (data["engagement_velocity"] < -0.3) |
-            (data["influencer_ratio"] < 0.3)
+            (data["sentiment_score"] < -0.3) | 
+            (data["comment_fatigue"] > 0.6) | 
+            ((data["trend_age"] > 45) & (data["engagement_velocity"] < 0)) |
+            (data["interaction_quality"] < -0.4)
         ).astype(int)
 
         X = data.drop("decline", axis=1)
@@ -44,20 +51,23 @@ class TrendRiskClassifier:
         ])
         
         self.model.fit(X, y)
-        print("✅ Proxy ML Model (LogisticRegression) trained successfully.")
+        print("✅ Proxy ML Model (LogisticRegression) re-trained with 11 features.")
 
     def predict_risk(self, signals: dict) -> dict:
         """
-        Takes a dictionary of 5 signals and returns risk score + metadata.
+        Takes an expanded signal dict and returns risk score + metadata.
         """
         # Ensure input order matches training
         feature_order = [
             "engagement_velocity", "sentiment_score", "comment_fatigue", 
-            "influencer_ratio", "posting_change"
+            "influencer_ratio", "posting_change", "trend_age",
+            "engagement_per_view", "interaction_quality", "fatigue_keyword_ratio",
+            "engagement_decay_rate", "format_repetition_score"
         ]
         
-        # Create DataFrame for single prediction
-        input_df = pd.DataFrame([signals], columns=feature_order)
+        # Filter and order signals
+        input_data = {f: signals.get(f, 0.0) for f in feature_order}
+        input_df = pd.DataFrame([input_data], columns=feature_order)
         
         # Predict probability of decline (Class 1)
         risk_prob = self.model.predict_proba(input_df)[0][1]

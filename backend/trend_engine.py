@@ -10,6 +10,8 @@ from ml_model import ml_classifier
 from explainability import xai_layer
 from genai_explainer import genai_explainer
 from usp_engine import usp_engine
+from feather_client import feather
+from prediction_model import model as decline_model
 
 load_dotenv()
 
@@ -37,18 +39,29 @@ def analyze_trend_real(input_text: str):
     comments = []
     trend_name = input_text
     
+    trend_name = input_text
+    
     if is_url:
         print(f"🔗 Detected YouTube URL: {input_text}")
-        video_id = yt_client.extract_video_id(input_text)
-        
-        if video_id:
-            video_data = yt_client.get_video_stats(video_id) or {}
-            comments = yt_client.get_comments(video_id) or []
-            trend_name = video_data.get("title", "Unknown Campaign")
-            print(f"✅ Fetched Data for: {trend_name}")
-        else:
-            print("❌ Invalid YouTube URL")
-            return None 
+        try:
+            video_id = yt_client.extract_video_id(input_text)
+            
+            if video_id:
+                video_data = yt_client.get_video_stats(video_id) or {}
+                comments = yt_client.get_comments(video_id) or []
+                trend_name = video_data.get("title", trend_name)
+                print(f"✅ Fetched Data for: {trend_name}")
+            else:
+                print("❌ Invalid YouTube URL (ID extraction failed)")
+                # Fallback to simulation if extraction fails but it looked like a URL
+                return _get_simulation_fallback(input_text)
+        except Exception as e:
+            print(f"❌ YouTube Extraction Error: {e}")
+            return _get_simulation_fallback(input_text)
+
+    elif "instagram.com" in input_text:
+        print(f"📸 Detected Instagram URL: {input_text} (Using Instagram Simulation)")
+        return _get_instagram_simulation(input_text)
     else:
         print(f"🔍 Detected Keyword: {input_text} (Using Simulation)")
         return _get_simulation_fallback(input_text)
@@ -58,11 +71,30 @@ def analyze_trend_real(input_text: str):
     signals = ft_engine.compute_signals(video_data, comments)
     print("✅ Feature Engineering complete")
     
-    # --- 3. ML PREDICTION ---
-    print("🚀 Starting ML Prediction...")
-    prediction = ml_classifier.predict_risk(signals)
-    risk_score = prediction["risk_score"]
-    print(f"✅ ML Prediction complete (Risk: {risk_score})")
+    # --- 2.5 FEATHER FEATURE STORE INTEGRATION ---
+    request_id = f"req_{int(pd.Timestamp.now().timestamp())}"
+    print(f"📦 Storing features in Feather (ID: {request_id})...")
+    feather.store_features(request_id, signals)
+    
+    # --- 3. ML PREDICTION (Ensemble Logic) ---
+    print("🚀 Starting Ensemble ML Prediction...")
+    # Model A: Proxy Logistic Regression
+    ml_prediction = ml_classifier.predict_risk(signals)
+    
+    # Model B: Weighted Business Logic Model (via Feather)
+    business_prediction = decline_model.predict(request_id)
+    
+    # Combine predictions (Average or weighted)
+    # We'll use business_prediction as a refinement on the ML base
+    combined_risk = (ml_prediction["risk_score"] * 0.4) + (business_prediction["declineRisk"] * 0.6)
+    risk_score = round(combined_risk, 2)
+    
+    # Update prediction metadata
+    prediction = ml_prediction.copy()
+    prediction["risk_score"] = risk_score
+    prediction["decline_window"] = business_prediction["timeWindow"]
+    
+    print(f"✅ Ensemble Prediction complete (Final Risk: {risk_score})")
     
     # --- 4. ENHANCED XAI (SHAP + Rule-Based) ---
     print("🚀 Starting XAI Explanation...")
@@ -125,7 +157,7 @@ def analyze_trend_real(input_text: str):
     formatted_drivers = _format_drivers_for_chart(shap_drivers, explanation["top_signals"])
 
     # --- 11. RETURN ENHANCED JSON ---
-    print("✅ Analysis Complete. Returning JSON.")
+    print("[SUCCESS] Analysis Complete. Returning JSON.")
     return {
         "inputType": "url",
         "detectedTrend": trend_name,
@@ -250,6 +282,116 @@ def _get_simulation_fallback(trend_name):
             "cringe_severity": cringe_result["severity"],
             "lifecycle_stage": lifecycle_result["stage"],
             "xai_method": "rule-based",
+            "shap_drivers": [],
+            "decision_justification": usp_engine.format_decision_justification(
+                risk_score, 
+                _fallback_shap_format(explanation["top_signals"]),
+                genai_summary, 
+                cringe_result, 
+                roi_result, 
+                lifecycle_result
+            )
+        }
+    }
+
+
+def _get_instagram_simulation(url):
+    """ specialised simulation for Instagram Reels/Posts """
+    # Extract username or shortcode if possible for better seed
+    try:
+        if "/reel/" in url:
+            shortcode = url.split("/reel/")[1].split("/")[0]
+            seed_val = shortcode
+        elif "/p/" in url:
+            shortcode = url.split("/p/")[1].split("/")[0]
+            seed_val = shortcode
+        else:
+            seed_val = url
+    except:
+        seed_val = url
+
+    random.seed(seed_val)
+    base_risk = random.randint(30, 85) # slightly different range than general fallback
+    
+    # Simulate high engagement (insta usually has higher engagement rate)
+    signals = {
+        "engagement_velocity": 0.7 if base_risk < 60 else -0.2,
+        "sentiment_score": 0.5 if base_risk < 60 else -0.4,
+        "comment_fatigue": 0.3 if base_risk < 60 else 0.7,
+        "influencer_ratio": 0.8, # Insta is influencer heavy
+        "posting_change": 0.1
+    }
+    
+    prediction = ml_classifier.predict_risk(signals)
+    risk_score = prediction["risk_score"]
+    
+    # Run USP engines
+    explanation = xai_layer.generate_decision_justification(signals, risk_score)
+    cringe_result = usp_engine.detect_cringe_point(signals, risk_score)
+    lifecycle_result = usp_engine.classify_lifecycle(risk_score, signals)
+    decline_days = _extract_decline_days(prediction["decline_window"])
+    roi_result = usp_engine.calculate_roi(risk_score, decline_days)
+    
+    # GenAI summary (customized prompt context essentially)
+    genai_summary = f"INSTAGRAM FORENSIC: {'Viral momentum detected' if risk_score < 50 else 'Engagement plateau detected'}. " + \
+                    genai_explainer.generate_executive_summary(
+                        risk_score, 
+                        _fallback_shap_format(explanation["top_signals"]),
+                        lifecycle_result["stage"],
+                        cringe_result["is_cringe_point"]
+                    )
+    
+    recommended_action = genai_explainer.generate_recommended_action(
+        risk_score, 
+        roi_result["estimated_savings"],
+        cringe_result["is_cringe_point"]
+    )
+    
+    drivers = [
+        {"label": "Algorithm Shift", "value": random.randint(40, 60), "fullMark": 100},
+        {"label": "Ad Fatigue", "value": random.randint(20, 40), "fullMark": 100},
+        {"label": "Audience Retention", "value": random.randint(30, 50), "fullMark": 100}
+    ]
+    
+    formatted_signals = [
+        {"metric": "Reels Engagement", "status": "High" if signals["engagement_velocity"] > 0.5 else "Low", 
+         "explanation": "Based on interaction velocity relative to follower count."}
+    ]
+
+    return {
+        "inputType": "instagram",
+        "detectedTrend": f"Instagram Post ({seed_val[:8]}...)",
+        "declineRisk": int(risk_score),
+        "timeWindow": prediction["decline_window"],
+        "primaryDriver": explanation["primary_driver"],
+        "featureBreakdown": signals,
+        "explanation": genai_summary,
+        "recommendedAction": recommended_action,
+        "confidence": 0.82,
+        
+        "trend": {
+            "history": [
+                {"timestamp": f"Day {i}", "value": max(0, int(100 - (i * (risk_score/15)) + random.randint(-10, 10)))}
+                for i in range(1, 8)
+            ]
+        },
+
+        "insight": {
+            "riskScore": int(risk_score),
+            "declineRisk": prediction["risk_level"],
+            "decline_probability": risk_score / 100.0,
+            "predicted_time_to_decline": prediction["decline_window"],
+            "summary": genai_summary,
+            "signals": formatted_signals,
+            "decline_drivers": drivers,
+            "actions": [recommended_action, "Cross-Platform Check"],
+            
+            # USP Fields
+            "roi_savings": roi_result["estimated_savings"],
+            "is_cringe_point": cringe_result["is_cringe_point"],
+            "cringe_severity": cringe_result["severity"],
+            "lifecycle_stage": lifecycle_result["stage"],
+            "xai_method": "simulation-v2",
             "shap_drivers": [],
             "decision_justification": usp_engine.format_decision_justification(
                 risk_score, 

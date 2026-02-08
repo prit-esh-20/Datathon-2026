@@ -21,17 +21,17 @@ class YouTubeClient:
 
     def extract_video_id(self, url):
         """Extracts video ID from various YouTube URL formats."""
-        parsed_url = urlparse(url)
-        if parsed_url.hostname == 'youtu.be':
-            return parsed_url.path[1:]
-        if parsed_url.hostname in ('www.youtube.com', 'youtube.com'):
-            if parsed_url.path == '/watch':
-                p = parse_qs(parsed_url.query)
-                return p['v'][0]
-            if parsed_url.path[:7] == '/embed/':
-                return parsed_url.path.split('/')[2]
-            if parsed_url.path[:3] == '/v/':
-                return parsed_url.path.split('/')[2]
+        import re
+        if not url: return None
+        
+        # Regex to catch video ID from youtube.com, youtu.be, embeds, shorts
+        # Supports: ?v=ID, /v/ID, /embed/ID, /shorts/ID, youtu.be/ID
+        regex = r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})'
+        
+        match = re.search(regex, url)
+        if match:
+            return match.group(1)
+            
         return None
 
     def get_video_stats(self, video_id):

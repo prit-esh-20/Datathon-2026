@@ -18,19 +18,25 @@ class GenAIExplainer:
     """
     
     def __init__(self):
+        self.model = None
+        self.refresh_key()
+    
+    def refresh_key(self):
+        """Reloads the API key and re-initializes the model."""
+        load_dotenv(override=True)
         api_key = os.getenv("GEMINI_API_KEY")
         
         if not api_key or api_key == "your_gemini_api_key_here":
-            print("⚠️ WARNING: GEMINI_API_KEY not configured. Using fallback text generation.")
+            print("[WARN] GEMINI_API_KEY not configured. Using fallback text generation.")
             self.model = None
         else:
             try:
                 genai.configure(api_key=api_key)
-                # Use the latest stable model name
-                self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                print("✅ Gemini AI initialized successfully")
+                # Use the 'latest' alias which is most compatible
+                self.model = genai.GenerativeModel('gemini-flash-latest')
+                print(f"[OK] Gemini AI (Flash-Latest) initialized with key: {api_key[:5]}...{api_key[-5:]}")
             except Exception as e:
-                print(f"⚠️ Failed to initialize Gemini: {e}")
+                print(f"[WARN] Failed to initialize Gemini: {e}")
                 self.model = None
     
     def generate_executive_summary(

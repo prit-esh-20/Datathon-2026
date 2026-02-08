@@ -2,12 +2,29 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
+from contextlib import asynccontextmanager
 
 # Import the new orchestrator
 from trend_engine import analyze_trend_real
 
-app = FastAPI(title="TrendFall AI - Decision Engine")
-print("🔥 SERVER RESTARTED WITH PATCH v3 (Fixed) 🔥")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Print a clean header
+    print("\n" + "="*50)
+    print("[INFO] TRENDFALL AI: DECISION ENGINE IS ONLINE")
+    print("[INFO] Listening for Trend Forensic Requests...")
+    print("="*50 + "\n")
+    yield
+    # Shutdown: Clean exit
+    print("\n" + "="*50)
+    print("[SHUTDOWN] SHUTTING DOWN DECISION ENGINE...")
+    print("[INFO] All signals saved. Goodbye.")
+    print("="*50 + "\n")
+
+app = FastAPI(
+    title="TrendFall AI - Decision Engine",
+    lifespan=lifespan
+)
 
 # Enable CORS (Critical for Frontend connection)
 app.add_middleware(

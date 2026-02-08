@@ -21,7 +21,13 @@ class ExplainabilityLayer:
             "engagement_velocity": "Engagement momentum is rapidly slowing",
             "comment_fatigue": "Content saturation detected (Audience Fatigue)",
             "influencer_ratio": "Key creators are disengaging from this trend",
-            "posting_change": "Posting frequency has dropped significantly"
+            "posting_change": "Posting frequency has dropped significantly",
+            "trend_age": "Trend is reaching natural maturity",
+            "engagement_per_view": "Interaction rate relative to views is declining",
+            "interaction_quality": "Overall quality of audience discussion is degrading",
+            "fatigue_keyword_ratio": "Presence of fatigue-related terminology is increasing",
+            "engagement_decay_rate": "Metric momentum is in active decline",
+            "format_repetition_score": "Content format feels overly repetitive to users"
         }
         
         # SHAP explainer will be initialized when ML model is passed
@@ -35,22 +41,24 @@ class ExplainabilityLayer:
         try:
             # Use KernelExplainer for compatibility with sklearn pipelines
             # We'll create a small background dataset for SHAP
-            background_data = np.random.uniform(-1, 1, (100, 5))
+            background_data = np.random.uniform(-1, 1, (100, 11))
             
             # Define prediction function for SHAP
             def predict_fn(X):
                 import pandas as pd
                 feature_order = [
                     "engagement_velocity", "sentiment_score", "comment_fatigue",
-                    "influencer_ratio", "posting_change"
+                    "influencer_ratio", "posting_change", "trend_age",
+                    "engagement_per_view", "interaction_quality", "fatigue_keyword_ratio",
+                    "engagement_decay_rate", "format_repetition_score"
                 ]
                 df = pd.DataFrame(X, columns=feature_order)
                 return ml_model.predict_proba(df)[:, 1]
             
             self.shap_explainer = shap.KernelExplainer(predict_fn, background_data)
-            print("✅ SHAP Explainer initialized successfully")
+            print("[OK] SHAP Explainer initialized successfully")
         except Exception as e:
-            print(f"⚠️ SHAP initialization failed: {e}. Using rule-based XAI only.")
+            print(f"[WARN] SHAP initialization failed: {e}. Using rule-based XAI only.")
             self.shap_explainer = None
     
     def generate_shap_explanation(self, signals: Dict[str, float], ml_model) -> List[Dict[str, Any]]:
@@ -73,7 +81,9 @@ class ExplainabilityLayer:
             # Convert signals dict to numpy array in correct order
             feature_order = [
                 "engagement_velocity", "sentiment_score", "comment_fatigue",
-                "influencer_ratio", "posting_change"
+                "influencer_ratio", "posting_change", "trend_age",
+                "engagement_per_view", "interaction_quality", "fatigue_keyword_ratio",
+                "engagement_decay_rate", "format_repetition_score"
             ]
             signal_array = np.array([[signals.get(f, 0) for f in feature_order]])
             
